@@ -11,8 +11,9 @@ import { createBrotliCompress, createBrotliDecompress } from 'node:zlib';
 import { pipeline } from 'node:stream';
 import { promisify } from 'node:util';
 import * as path from 'node:path';
-import * as os from 'node:os';
-import { MESSAGE } from './consts.js';
+import { EOL, cpus, homedir, userInfo, arch } from 'node:os';
+import { createHash } from 'node:crypto';
+import { MESSAGE, LOG_COLOR } from './consts.js';
 import { messages } from './messages.js';
 import { setDirectory } from './utils.js';
 import OS_PARAMS from './osParams.enum.js';
@@ -60,7 +61,7 @@ export const handlers = {
   cat: async ([fileName]) => {
     const pathToFile = path.resolve(fileName);
     const readableStream = createReadStream(pathToFile, { encoding: 'utf8' });
-    readableStream.on('data', chunk => console.log('\x1b[33m%s\x1b[0m', chunk));
+    readableStream.on('data', chunk => console.log(LOG_COLOR.YELLOW, chunk));
     readableStream.on('end', () => messages.printCurrentDir());
     readableStream.on('error', () => messages.printMsg(MESSAGE.OPERATION_FAILED));
   },
@@ -93,21 +94,21 @@ export const handlers = {
   os: ([arg]) => {
     switch (arg) {
       case OS_PARAMS.END_OF_LINE:
-        console.log(`${MESSAGE.DEFAULT_EOL}: ${JSON.stringify(os.EOL)}`);
+        console.log(LOG_COLOR.YELLOW, `${MESSAGE.DEFAULT_EOL}: ${JSON.stringify(EOL)}`);
         break;
       case OS_PARAMS.CPUS:
-        const cpus = os.cpus().map(({ model, speed }) => ({ Model: model, Speed: `${speed} MHz` }));
-        console.log(`${MESSAGE.CPU_INFO}: ${cpus.length}`);
-        console.table(cpus);
+        const cpuParams = cpus().map(({ model, speed }) => ({ Model: model, Speed: `${speed} MHz` }));
+        console.log(LOG_COLOR.YELLOW, `${MESSAGE.CPU_INFO}: ${cpuParams.length}`);
+        console.table(cpuParams);
         break;
       case OS_PARAMS.HOME_DIR:
-        console.log(`${MESSAGE.HOME_DIR}: ${os.homedir()}`);
+        console.log(LOG_COLOR.YELLOW, `${MESSAGE.HOME_DIR}: ${homedir()}`);
         break;
       case OS_PARAMS.USER_NAME:
-        console.log(`${MESSAGE.USER_NAME}: ${os.userInfo().username}`);
+        console.log(LOG_COLOR.YELLOW, `${MESSAGE.USER_NAME}: ${userInfo().username}`);
         break;
       case OS_PARAMS.ARCHITECTURE:
-        console.log(`${MESSAGE.ARHITECTURE}: ${os.arch()}`);
+        console.log(LOG_COLOR.YELLOW, `${MESSAGE.ARHITECTURE}: ${arch()}`);
         break;
       default:
         messages.printMsg(MESSAGE.INVALID_INPUT);
@@ -118,25 +119,29 @@ export const handlers = {
     const pathToFile = path.resolve(fileName);
     const content = await readFile(pathToFile, { encoding: 'utf8' });
     const hash = await createHash('sha256').update(content).digest('hex');
-    console.log(hash);
+    console.log(LOG_COLOR.YELLOW, hash);
   },
 
-  compress: async ([fileName, writeName]) => {
+  compress: async ([fileName, dirName]) => {
     const pathToFileRead = path.resolve(fileName);
-    const pathToFileWrite = path.resolve(writeName);
+    const pathToFileWrite = path.resolve(dirName);
     const read = createReadStream(pathToFileRead);
-    const write = createWriteStream(pathToFileWrite);
+    const write = createWriteStream(
+      path.join(pathToFileWrite, path.basename(fileName) + '.br')
+    );
     const brotliCompress = createBrotliCompress();
     const pipe = promisify(pipeline);
 
     await pipe(read, brotliCompress, write);
   },
 
-  decompress: async ([fileName, readName]) => {
-    const pathToFileWrite = path.resolve(fileName);
-    const pathToFileRead = path.resolve(readName);
+  decompress: async ([fileName, dirName]) => {
+    const pathToFileRead = path.resolve(fileName);
+    const pathToFileWrite = path.resolve(dirName);
     const read = createReadStream(pathToFileRead);
-    const write = createWriteStream(pathToFileWrite);
+    const write = createWriteStream(
+      path.join(pathToFileWrite, path.basename(fileName).replace('.br', ''))
+    );
     const brotliDecompress = createBrotliDecompress();
     const pipe = promisify(pipeline);
 

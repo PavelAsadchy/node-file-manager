@@ -12,5 +12,7 @@ export const MESSAGE = {
   USER_NAME: 'Current system user name',
   ARHITECTURE: 'CPU architecture for which Node.js binary has compiled'
 };
-
-export const EXIT_COMMAND = '.exit';
+export const LOG_COLOR = {
+  YELLOW: '\x1b[33m%s\x1b[0m',
+  CYAN: '\x1b[36m%s\x1b[0m',
+}
